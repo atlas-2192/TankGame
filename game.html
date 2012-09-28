@@ -5,10 +5,17 @@
         <script>
             function PlayState() {
                 var bottom;
+                var ttop;
 
                 this.setup = function() {
                     bottom = new jaws.Sprite({'image':"images/tankbot.png", x:100, y:100,'anchor':"center"});
                     bottom.velocity = [0, 0];
+
+                    ttop = new jaws.Sprite({'image':"images/tanktop.png", x:100, y:100, 'anchor_x':0.5, 'anchor_y':0.75});
+                    //ttop.anchor_x = 0.5;
+                    //ttop.anchor_y = 0.75;
+                    //ttop.cacheOffsets();
+                    
                     jaws.preventDefaultKeys(["w", "a", "s", "d"]);
                 }
 
@@ -33,6 +40,8 @@
                         bottom.x -= bottom.velocity[0];
                         bottom.y -= bottom.velocity[1];
                         
+                        ttop.x -= bottom.velocity[0];
+                        ttop.y -= bottom.velocity[1];
                     }
                     if(jaws.pressed("s")) {
                         var dx, dy = 1;
@@ -53,6 +62,9 @@
 
                         bottom.x += bottom.velocity[0];
                         bottom.y += bottom.velocity[1];
+                        
+                        ttop.x += bottom.velocity[0];
+                        ttop.y += bottom.velocity[1];
                     
                     }
                     if(jaws.pressed("a")) { 
@@ -61,11 +73,21 @@
                     if(jaws.pressed("d")) {
                         bottom.angle += 1;
                     }
+
+                    if(jaws.pressed("left")) {
+                        ttop.angle -= 1;
+                    }
+                    
+                    if(jaws.pressed("right")) {
+                        ttop.angle += 1;
+                    }
                 }
 
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
                     bottom.draw();
+                    ttop.draw();
+
                 }
             }
             window.onload = function() {
