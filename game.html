@@ -1,8 +1,52 @@
 <!DOCTYPE html> 
 <html>
     <head>
-        <script src="jaws.js"></script>
+        <script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
+        <script src="lib/jaws.js"></script>
         <script>
+            var sock;
+
+            var players = new jaws.SpriteList();
+
+            function connectSocketsState() {
+                this.setup = function() {
+                    //-----------
+                    // Sockets
+                    //-----------
+                    sock = new SockJS('http://localhost:8090');
+                    sock.onopen = function() {
+                        console.log('open');
+                        jaws.switchGameState(PlayState);    
+                    }
+
+                    sock.onmessage = function(e) {
+                        var d = JSON.parse(e.data)
+                        if (d['newplayer']) {
+                            console.log('new player');
+                            var x = d['newplayer']['x'];
+                            var y = d['newplayer']['y'];
+                            var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
+                            var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
+                            console.log(b);
+                            players.push(b);
+                            players.push(t);
+                        }
+                    }
+
+                    sock.onclose = function() {
+                        console.log('closed');
+                    }
+
+                }
+
+                this.draw = function() {
+                    jaws.context.clearRect(0,0,jaws.width,jaws.height)
+                    jaws.context.font = "bold 50pt terminal";
+                    jaws.context.lineWidth = 10
+                    jaws.context.fillStyle = "Black"
+                    jaws.context.fillText("Connecting", 30, 100)
+                }
+            }
             function PlayState() {
                 var bottom;
                 var ttop;
@@ -12,9 +56,6 @@
                     bottom.velocity = [0, 0];
 
                     ttop = new jaws.Sprite({'image':"images/tanktop.png", x:100, y:100, 'anchor_x':0.5, 'anchor_y':0.75});
-                    //ttop.anchor_x = 0.5;
-                    //ttop.anchor_y = 0.75;
-                    //ttop.cacheOffsets();
                     
                     jaws.preventDefaultKeys(["w", "a", "s", "d"]);
                 }
@@ -82,9 +123,12 @@
                         ttop.angle += 1;
                     }
                 }
-
                 this.draw = function() {
+                    var me = [bottom.toJSON(), ttop.toJSON()];
+                    sock.send(me);
+
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
+                    players.draw();
                     bottom.draw();
                     ttop.draw();
 
@@ -94,7 +138,10 @@
                 jaws.assets.add("images/tanktop.png");
                 jaws.assets.add("images/tankbot.png");
                 jaws.assets.add("images/bluebullet.png");
-                jaws.start(PlayState, {fps:60});
+                jaws.start(connectSocketsState, {fps:60});
+            }
+
+            function setupSockets() {
             }
         </script>
     </head>
