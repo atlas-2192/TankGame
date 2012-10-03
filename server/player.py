@@ -2,6 +2,10 @@ from math import cos, sin, radians
 from random import randint
 import json
 
+from twisted.internet import reactor
+
+from bullet import Bullet
+
 class Player(object):
     
     def __init__(self, user, x, y):
@@ -34,8 +38,13 @@ class Player(object):
             'd':self.rotate,
             'left':self.rotateTurret,
             'right':self.rotateTurret,
-            'space':self.fire,
+            'fire':self.fire,
         }
+
+        #bullets
+        self.loading = False 
+        self.bullet_list = []
+
     def acceptCommands(self, actions):
         """
         actions: A list of actions the client has pushed (WASD, Fire, etc...)
@@ -83,8 +92,23 @@ class Player(object):
         else:
             self.trot += 1
 
-    def fire(self):
-        return
+    def fire(self, useless):
+        
+        if not self.loading:
+            self.loading = True
+            angle_radians = radians(self.trot)
+
+            bullet_x = self.tx + sin(angle_radians)
+            bullet_y = self.ty + cos(angle_radians)
+
+            bullet = Bullet(self.x, self.y, self.trot, self)
+            self.bullet_list.append(bullet)
+            
+            #time it takes to reload
+            reactor.callLater(1, self.doneReloading)
+
+    def doneReloading(self):
+        self.loading = False
 
     def toJSON(self):
         return json.dumps({

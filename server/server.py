@@ -6,11 +6,11 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, protocol
 
 from player import Player
+from bullet import Bullet
 
 import time
 import json
 from random import randint
-
 
 class BoomProtocol(LineReceiver):
 
@@ -60,14 +60,34 @@ class GameFactory(Factory):
 
     def broadcast(self):
         player_list = self.playerList()
+        bullet_list = self.bulletList()
         for u in self.users:
-            u.boom.sendLine(json.dumps({"player_list":player_list}))
+            u.boom.sendLine(json.dumps({
+                "player_list":player_list,
+                "bullet_list":bullet_list
+                })
+            )
 
     def playerList(self):
+        """
+        Really returns a dict of {'playerid':player details}
+        """
         player_list = {}
         for p in self.users:
             player_list[p.pid] = p.toObj()
         return player_list
+
+    def bulletList(self):
+        """
+        A list of all the active bullets
+        """
+        bullet_list = []
+        for p in self.users:
+            for b in p.bullet_list:
+                b.update()
+                bullet_list.append(b.toObj())
+        return bullet_list
+
 
 f = GameFactory()
 s = SockJSFactory(f)

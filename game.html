@@ -5,8 +5,12 @@
         <script src="lib/jaws.js"></script>
         <script>
             //some global variables
-            var sock;
             var players = new jaws.SpriteList();
+            var bullets = new jaws.SpriteList();
+            var bulletids = [];
+            
+            var sock;
+
             var player_bottom;
             var player_top;
 
@@ -22,12 +26,21 @@
                 players.push(t);
             }
 
+            function addBullet(id, x, y, rot) {
+                // Helper function to add a bullet
+                var b = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
+                b.angle = rot;
+                b.id = id;
+                bullets.push(b);
+                bulletids.push(id);
+            }
+
             function connectSocketsState() {
                 this.setup = function() {
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://sambev.dlinkddns.com:8090');
+                    sock = new SockJS('http://localhost:8090');
                     sock.onopen = function() {
                         console.log('open');
                     }
@@ -83,7 +96,7 @@
             }
             function PlayState() {
                 this.setup = function() {
-                    jaws.preventDefaultKeys(["w", "a", "s", "d", "space"]);
+                    jaws.preventDefaultKeys(["space", "w", "a", "s", "d", "left", "right"]);
 
                     sock.onmessage = function(e) {
                         var d = JSON.parse(e.data)
@@ -109,6 +122,24 @@
                             }
                             players.forEach(updatePlayers);
                         }
+
+                        if (d['bullet_list']) {
+                            var bl = d['bullet_list'];
+
+                            function processBullet(b) {
+                                if (bulletids.indexOf(b['id']) == '-1') {
+                                    addBullet(b['id'], b['x'], b['y'], b['rot']);
+                                } else {
+                                    bullets.forEach(function(bull) {
+                                        if (bull['id'] == b['id']) {
+                                            bull.moveTo(b['x'], b['y']);
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            bl.forEach(processBullet);
+                        }
                     }
                 }
 
@@ -116,6 +147,10 @@
 
                     // a list of all the keys pressed we care about on this rendering
                     var actions = [];
+
+                    if(jaws.pressed("space")) {
+                        actions.push('fire');
+                    }
 
                     if(jaws.pressed("w")) { 
                         actions.push('w');
@@ -183,9 +218,6 @@
                         player_top.angle += 1;
                     }
 
-                    if(jaws.pressed("space")) {
-                        actions.push('space');
-                    }
                    
                     // If they have pressed any keys we care about, send a message to the server
                     if (actions.length != 0) {
@@ -195,6 +227,7 @@
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
                     players.draw();
+                    bullets.draw();
                 }
             }
             
