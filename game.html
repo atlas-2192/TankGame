@@ -1,7 +1,7 @@
 <!DOCTYPE html> 
 <html>
     <head>
-        <script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
+        <script src="lib/sockjs-0.3.min.js"></script>
         <script src="lib/jaws.js"></script>
         <script>
             var sock;
@@ -15,7 +15,7 @@
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://192.168.1.153:8090');
+                    sock = new SockJS('http://localhost:8090');
                     sock.onopen = function() {
                         console.log('open');
                     }
@@ -82,6 +82,11 @@
                                 //server player
                                 var sp = player_list[ip.pid];
                                 ip.moveTo(sp['x'], sp['y']);
+                                if (ip.image_path == 'images/tanktop.png') {
+                                    ip.angle = sp.trot;
+                                } else {
+                                    ip.angle = sp.rot;
+                                }
                             }
                             players.forEach(updatePlayers);
                         }

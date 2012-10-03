@@ -12,8 +12,6 @@ import json
 from random import randint
 
 
-
-
 class BoomProtocol(LineReceiver):
 
     def __init__(self, factory):
@@ -28,6 +26,7 @@ class BoomProtocol(LineReceiver):
         self.factory.processData(data)
 
     def connectionLost(self, something):
+        print 'connection lost'
         self.factory.users.remove(self)
         
 

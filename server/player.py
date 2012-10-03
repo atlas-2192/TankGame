@@ -31,7 +31,10 @@ class Player(object):
             'w':self.move,
             's':self.move,
             'a':self.rotate,
-            'd':self.rotate
+            'd':self.rotate,
+            'left':self.rotateTurret,
+            'right':self.rotateTurret,
+            'space':self.fire,
         }
     def acceptCommands(self, actions):
         """
@@ -73,6 +76,15 @@ class Player(object):
             self.rot -= 1
         else:
             self.rot += 1
+
+    def rotateTurret(self, direction):
+        if direction == 'left':
+            self.trot += 1
+        else:
+            self.trot -= 1
+
+    def fire(self):
+        return
 
     def toJSON(self):
         return json.dumps({
