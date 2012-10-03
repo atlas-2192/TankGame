@@ -7,29 +7,37 @@
             var sock;
 
             var players = new jaws.SpriteList();
+            var player_bottom;
+            var player_top;
 
             function connectSocketsState() {
                 this.setup = function() {
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://localhost:8090');
+                    sock = new SockJS('http://192.168.1.153:8090');
                     sock.onopen = function() {
                         console.log('open');
-                        jaws.switchGameState(PlayState);    
                     }
 
                     sock.onmessage = function(e) {
+                        console.log('it should only call once');
                         var d = JSON.parse(e.data)
                         if (d['newplayer']) {
-                            console.log('new player');
-                            var x = d['newplayer']['x'];
-                            var y = d['newplayer']['y'];
-                            var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
-                            var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
-                            console.log(b);
-                            players.push(b);
-                            players.push(t);
+                            var p = JSON.parse(d['newplayer']);
+                            var x = p['x'];
+                            var y = p['y'];
+                            var id = p['pid'];
+
+                            player_bottom = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
+                            player_bottom.pid = id;
+                            player_bottom.velocity = [0, 0];
+
+                            player_top = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
+                            player_top.pid = id;
+                            players.push(player_bottom);
+                            players.push(player_top);
+                            jaws.switchGameState(PlayState);    
                         }
                     }
 
@@ -48,97 +56,121 @@
                 }
             }
             function PlayState() {
-                var bottom;
-                var ttop;
-
                 this.setup = function() {
-                    bottom = new jaws.Sprite({'image':"images/tankbot.png", x:100, y:100,'anchor':"center"});
-                    bottom.velocity = [0, 0];
-
-                    ttop = new jaws.Sprite({'image':"images/tanktop.png", x:100, y:100, 'anchor_x':0.5, 'anchor_y':0.75});
-                    
                     jaws.preventDefaultKeys(["w", "a", "s", "d"]);
+
+                    sock.onmessage = function(e) {
+                        var d = JSON.parse(e.data)
+                        if (d['newplayer']) {
+                            var p = JSON.parse(d['newplayer']);
+                            var x = p['x'];
+                            var y = p['y'];
+                            var id = p['pid'];
+
+                            var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
+                            b.pid = id;
+
+                            var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
+                            t.pid = id;
+                            players.push(b);
+                            players.push(t);
+                        } 
+                        
+                        if (d['player_list']) {
+                            var player_list = d['player_list'];
+                            function updatePlayers(ip, index) {
+                                //server player
+                                var sp = player_list[ip.pid];
+                                ip.moveTo(sp['x'], sp['y']);
+                            }
+                            players.forEach(updatePlayers);
+                        }
+                    }
                 }
 
                 this.update = function() {
+                    var actions = [];
+
                     if(jaws.pressed("w")) { 
-                        var dx, dy = 1;
+                        actions.push('w');
                         var a = [0,0];
 
-                        var r = bottom.angle + 90;
+                        var r = player_bottom.angle + 90;
 
                         a[0] += Math.cos(r*(Math.PI/180))*.9
                         a[1] += Math.sin(r*(Math.PI/180))*.9
 
                         var ff = .5
                         
-                        bottom.velocity[0] *= ff;
-                        bottom.velocity[1] *= ff;
+                        player_bottom.velocity[0] *= ff;
+                        player_bottom.velocity[1] *= ff;
 
-                        bottom.velocity[0] += a[0]; 
-                        bottom.velocity[1] += a[1];
+                        player_bottom.velocity[0] += a[0]; 
+                        player_bottom.velocity[1] += a[1];
 
-                        bottom.x -= bottom.velocity[0];
-                        bottom.y -= bottom.velocity[1];
+                        player_bottom.x -= player_bottom.velocity[0];
+                        player_bottom.y -= player_bottom.velocity[1];
                         
-                        ttop.x -= bottom.velocity[0];
-                        ttop.y -= bottom.velocity[1];
+                        player_top.x -= player_bottom.velocity[0];
+                        player_top.y -= player_bottom.velocity[1];
                     }
                     if(jaws.pressed("s")) {
-                        var dx, dy = 1;
+                        actions.push('s');
                         var a = [0,0];
 
-                        var r = bottom.angle + 90;
+                        var r = player_bottom.angle + 90;
 
                         a[0] += Math.cos(r*(Math.PI/180))*.9
                         a[1] += Math.sin(r*(Math.PI/180))*.9
 
                         var ff = .5
                         
-                        bottom.velocity[0] *= ff;
-                        bottom.velocity[1] *= ff;
+                        player_bottom.velocity[0] *= ff;
+                        player_bottom.velocity[1] *= ff;
 
-                        bottom.velocity[0] += a[0]; 
-                        bottom.velocity[1] += a[1];
+                        player_bottom.velocity[0] += a[0]; 
+                        player_bottom.velocity[1] += a[1];
 
-                        bottom.x += bottom.velocity[0];
-                        bottom.y += bottom.velocity[1];
+                        player_bottom.x += player_bottom.velocity[0];
+                        player_bottom.y += player_bottom.velocity[1];
                         
-                        ttop.x += bottom.velocity[0];
-                        ttop.y += bottom.velocity[1];
+                        player_top.x += player_bottom.velocity[0];
+                        player_top.y += player_bottom.velocity[1];
                     
                     }
                     if(jaws.pressed("a")) { 
-                        bottom.angle -= 1;
+                        actions.push('a');
+                        player_bottom.angle -= 1;
                     }
                     if(jaws.pressed("d")) {
-                        bottom.angle += 1;
+                        actions.push('d');
+                        player_bottom.angle += 1;
                     }
 
                     if(jaws.pressed("left")) {
-                        ttop.angle -= 1;
+                        actions.push('left');
+                        player_top.angle -= 1;
                     }
                     
                     if(jaws.pressed("right")) {
-                        ttop.angle += 1;
+                        actions.push('right');
+                        player_top.angle += 1;
+                    }
+                    
+                    if (actions.length != 0) {
+                        sock.send(JSON.stringify({"pid":player_bottom.pid,"actions":actions}));
                     }
                 }
                 this.draw = function() {
-                    var me = [bottom.toJSON(), ttop.toJSON()];
-                    sock.send(me);
-
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
                     players.draw();
-                    bottom.draw();
-                    ttop.draw();
-
                 }
             }
             window.onload = function() {
                 jaws.assets.add("images/tanktop.png");
                 jaws.assets.add("images/tankbot.png");
                 jaws.assets.add("images/bluebullet.png");
-                jaws.start(connectSocketsState, {fps:60});
+                jaws.start(connectSocketsState, {fps:30});
             }
 
             function setupSockets() {

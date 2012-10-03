@@ -3,11 +3,14 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.internet.protocol import Factory, ClientFactory, Protocol
 from twisted.protocols.basic import LineReceiver
-import time
-
-import json
-
 from twisted.internet import reactor, protocol
+
+from player import Player
+
+import time
+import json
+from random import randint
+
 
 
 
@@ -34,24 +37,34 @@ class GameFactory(Factory):
         self.users = set()
 
     def addUser(self, user):
-        self.users.add(user)
+        
+        #random location
+        rx = randint(10,500)
+        ry = randint(10,500)
+        p = Player(user, 300, 300)
+
+        self.users.add(p)
+
         for u in self.users:
-            u.sendLine(json.dumps({'newplayer':{'x':300, 'y':300}}))
+            u.boom.sendLine(json.dumps({'newplayer':p.toJSON()}))
 
     def buildProtocol(self, addr):
         return BoomProtocol(self)
 
     def processData(self, data):
-        return
-        #self.emit(json.dumps(self.data))
+        data = json.loads(data)
+        for u in self.users:
+            if u.pid == data['pid']:
+                u.acceptCommands(data['actions'])
 
     def broadcast(self):
+        player_list = {}
+        for p in self.users:
+            player_list[p.pid] = p.toObj()
         for u in self.users:
-            u.sendLine(json.dumps({'timed':'broadcast'}))
+            u.boom.sendLine(json.dumps({"player_list":player_list}))
 
-    def emit(self, message):
-        for u in self.users:
-            u.sendLine(message)
+
 
 f = GameFactory()
 s = SockJSFactory(f)
@@ -59,7 +72,7 @@ s = SockJSFactory(f)
 reactor.listenTCP(8090, s)
 
 lc = LoopingCall(f.broadcast)
-lc.start(0.5)
+lc.start(0.03333333333333)
 
 reactor.run()
 
