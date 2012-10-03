@@ -41,7 +41,9 @@ class GameFactory(Factory):
         rx = randint(10,500)
         ry = randint(10,500)
         p = Player(user, 300, 300)
-
+        
+        #send all the current players first
+        p.boom.sendLine(json.dumps({"player_list":self.playerList()}))
         self.users.add(p)
 
         for u in self.users:
@@ -57,13 +59,15 @@ class GameFactory(Factory):
                 u.acceptCommands(data['actions'])
 
     def broadcast(self):
-        player_list = {}
-        for p in self.users:
-            player_list[p.pid] = p.toObj()
+        player_list = self.playerList()
         for u in self.users:
             u.boom.sendLine(json.dumps({"player_list":player_list}))
 
-
+    def playerList(self):
+        player_list = {}
+        for p in self.users:
+            player_list[p.pid] = p.toObj()
+        return player_list
 
 f = GameFactory()
 s = SockJSFactory(f)

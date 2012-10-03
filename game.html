@@ -10,6 +10,18 @@
             var player_bottom;
             var player_top;
 
+            function addPlayer(x, y, pid) {
+                //Helper function to add a player
+                var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
+                b.pid = pid;
+                b.velocity = [0, 0];
+
+                var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
+                t.pid = pid;
+                players.push(b);
+                players.push(t);
+            }
+
             function connectSocketsState() {
                 this.setup = function() {
                     //-----------
@@ -39,6 +51,17 @@
                             players.push(player_top);
                             jaws.switchGameState(PlayState);    
                         }
+                        
+                        if (d['player_list']) {
+                            var player_list = d['player_list'];
+                            for (i in player_list) {
+                                if (parseInt(i)) {
+                                    var sp = player_list[i];
+                                    addPlayer(sp['x'], sp['y'], sp['pid']);
+                                }
+                            }
+                            console.log(player_list);
+                        }
                     }
 
                     sock.onclose = function() {
@@ -66,14 +89,7 @@
                             var x = p['x'];
                             var y = p['y'];
                             var id = p['pid'];
-
-                            var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
-                            b.pid = id;
-
-                            var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
-                            t.pid = id;
-                            players.push(b);
-                            players.push(t);
+                            addPlayer(x, y, id);
                         } 
                         
                         if (d['player_list']) {
@@ -83,9 +99,9 @@
                                 var sp = player_list[ip.pid];
                                 ip.moveTo(sp['x'], sp['y']);
                                 if (ip.image_path == 'images/tanktop.png') {
-                                    ip.angle = sp.trot;
+                                    ip.angle = sp['trot'];
                                 } else {
-                                    ip.angle = sp.rot;
+                                    ip.angle = sp['rot'];
                                 }
                             }
                             players.forEach(updatePlayers);

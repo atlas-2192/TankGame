@@ -79,9 +79,9 @@ class Player(object):
 
     def rotateTurret(self, direction):
         if direction == 'left':
-            self.trot += 1
-        else:
             self.trot -= 1
+        else:
+            self.trot += 1
 
     def fire(self):
         return
@@ -93,7 +93,8 @@ class Player(object):
             'y':self.y,
             'rot':self.rot,
             'tx':self.tx,
-            'ty':self.ty
+            'ty':self.ty,
+            'trot':self.trot
         })
 
     def toObj(self):
@@ -103,6 +104,7 @@ class Player(object):
             'y':self.y,
             'rot':self.rot,
             'tx':self.tx,
-            'ty':self.ty
+            'ty':self.ty,
+            'trot':self.trot
         }
 
