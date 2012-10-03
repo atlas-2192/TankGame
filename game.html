@@ -4,8 +4,8 @@
         <script src="lib/sockjs-0.3.min.js"></script>
         <script src="lib/jaws.js"></script>
         <script>
+            //some global variables
             var sock;
-
             var players = new jaws.SpriteList();
             var player_bottom;
             var player_top;
@@ -27,15 +27,16 @@
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://localhost:8090');
+                    sock = new SockJS('http://sambev.dlinkddns.com:8090');
                     sock.onopen = function() {
                         console.log('open');
                     }
 
                     sock.onmessage = function(e) {
-                        console.log('it should only call once');
+                        // This function is only until the servers has recognized your connection
                         var d = JSON.parse(e.data)
                         if (d['newplayer']) {
+                            // This should always be you
                             var p = JSON.parse(d['newplayer']);
                             var x = p['x'];
                             var y = p['y'];
@@ -49,10 +50,13 @@
                             player_top.pid = id;
                             players.push(player_bottom);
                             players.push(player_top);
+
+                            // Switch the game state. This changes sock.onemessage 
                             jaws.switchGameState(PlayState);    
                         }
                         
                         if (d['player_list']) {
+                            // Add any existing players to the map
                             var player_list = d['player_list'];
                             for (i in player_list) {
                                 if (parseInt(i)) {
@@ -60,7 +64,6 @@
                                     addPlayer(sp['x'], sp['y'], sp['pid']);
                                 }
                             }
-                            console.log(player_list);
                         }
                     }
 
@@ -75,12 +78,12 @@
                     jaws.context.font = "bold 50pt terminal";
                     jaws.context.lineWidth = 10
                     jaws.context.fillStyle = "Black"
-                    jaws.context.fillText("Connecting", 30, 100)
+                    jaws.context.fillText("Connecting to server", 30, 100)
                 }
             }
             function PlayState() {
                 this.setup = function() {
-                    jaws.preventDefaultKeys(["w", "a", "s", "d"]);
+                    jaws.preventDefaultKeys(["w", "a", "s", "d", "space"]);
 
                     sock.onmessage = function(e) {
                         var d = JSON.parse(e.data)
@@ -110,6 +113,8 @@
                 }
 
                 this.update = function() {
+
+                    // a list of all the keys pressed we care about on this rendering
                     var actions = [];
 
                     if(jaws.pressed("w")) { 
@@ -177,7 +182,12 @@
                         actions.push('right');
                         player_top.angle += 1;
                     }
-                    
+
+                    if(jaws.pressed("space")) {
+                        actions.push('space');
+                    }
+                   
+                    // If they have pressed any keys we care about, send a message to the server
                     if (actions.length != 0) {
                         sock.send(JSON.stringify({"pid":player_bottom.pid,"actions":actions}));
                     }
@@ -187,6 +197,8 @@
                     players.draw();
                 }
             }
+            
+            // WINDOW LOADED
             window.onload = function() {
                 jaws.assets.add("images/tanktop.png");
                 jaws.assets.add("images/tankbot.png");
@@ -194,8 +206,6 @@
                 jaws.start(connectSocketsState, {fps:30});
             }
 
-            function setupSockets() {
-            }
         </script>
     </head>
     <body>
