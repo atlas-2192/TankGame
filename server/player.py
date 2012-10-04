@@ -8,10 +8,13 @@ from bullet import Bullet
 
 class Player(object):
     
-    def __init__(self, user, x, y):
+    def __init__(self, world, user, x, y):
         """
         User: the BoomProtocol instance
         """
+        #The world this player belongs to
+        self.world = world
+
         self.pid = randint(1,500)
         self.boom = user
         
@@ -43,6 +46,7 @@ class Player(object):
 
         #bullets
         self.loading = False 
+        self.new_bullets = []
         self.bullet_list = []
 
     def acceptCommands(self, actions):
@@ -100,9 +104,8 @@ class Player(object):
 
             bullet_x = self.tx + sin(angle_radians)
             bullet_y = self.ty + cos(angle_radians)
-
-            bullet = Bullet(self.x, self.y, self.trot, self)
-            self.bullet_list.append(bullet)
+            print 'new bullet'
+            bullet = Bullet(self.world, self, self.x, self.y, self.trot)
             
             #time it takes to reload
             reactor.callLater(1, self.doneReloading)

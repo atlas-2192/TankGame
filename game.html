@@ -5,15 +5,20 @@
         <script src="lib/jaws.js"></script>
         <script>
             //some global variables
+            var you = new jaws.SpriteList();
             var players = new jaws.SpriteList();
+            // This maps the player id to it's sprites locations
+            var players_map = {};
             var bullets = new jaws.SpriteList();
             var bulletids = [];
             
             var sock;
 
-            var player_bottom;
-            var player_top;
-
+            var you_bottom;
+            var you_top;
+            //--------------------------
+            //Helper Fuctions
+            //--------------------------
             function addPlayer(x, y, pid) {
                 //Helper function to add a player
                 var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
@@ -34,7 +39,14 @@
                 bullets.push(b);
                 bulletids.push(id);
             }
+            function isOutsideCanvas(item) { 
+                // check to see if item is outside the canvas
+                return (item.x < 0 || item.y < 0 || item.x > jaws.width || item.y > jaws.height) 
+            }
 
+            //-------------------------
+            // INITIAL GAME STATE
+            //------------------------
             function connectSocketsState() {
                 this.setup = function() {
                     //-----------
@@ -48,21 +60,18 @@
                     sock.onmessage = function(e) {
                         // This function is only until the servers has recognized your connection
                         var d = JSON.parse(e.data)
-                        if (d['newplayer']) {
+                        if (d['new_you']) {
                             // This should always be you
-                            var p = JSON.parse(d['newplayer']);
+                            var p = JSON.parse(d['new_you']);
                             var x = p['x'];
                             var y = p['y'];
-                            var id = p['pid'];
 
-                            player_bottom = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
-                            player_bottom.pid = id;
-                            player_bottom.velocity = [0, 0];
+                            you_bottom = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
+                            you_bottom.velocity = [0, 0];
 
-                            player_top = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
-                            player_top.pid = id;
-                            players.push(player_bottom);
-                            players.push(player_top);
+                            you_top = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
+                            you.push(you_bottom);
+                            you.push(you_top);
 
                             // Switch the game state. This changes sock.onemessage 
                             jaws.switchGameState(PlayState);    
@@ -100,8 +109,8 @@
 
                     sock.onmessage = function(e) {
                         var d = JSON.parse(e.data)
-                        if (d['newplayer']) {
-                            var p = JSON.parse(d['newplayer']);
+                        if (d['new_player']) {
+                            var p = JSON.parse(d['new_player']);
                             var x = p['x'];
                             var y = p['y'];
                             var id = p['pid'];
@@ -123,27 +132,37 @@
                             players.forEach(updatePlayers);
                         }
 
+                        if (d['new_bullets'].length != 0) {
+                            // Handle when a new bullet needs to be drawn
+                            var new_bullets = d['new_bullets'];
+
+                            function processNewBullet(b) {
+                                addBullet(b['id'], b['x'], b['y'], b['rot']);
+                            }
+                            new_bullets.forEach(processNewBullet);
+                        }
+
                         if (d['bullet_list']) {
                             var bl = d['bullet_list'];
 
                             function processBullet(b) {
-                                if (bulletids.indexOf(b['id']) == '-1') {
-                                    addBullet(b['id'], b['x'], b['y'], b['rot']);
-                                } else {
-                                    bullets.forEach(function(bull) {
-                                        if (bull['id'] == b['id']) {
-                                            bull.moveTo(b['x'], b['y']);
-                                        }
-                                    });
-                                }
+                                bullets.forEach(function(bull) {
+                                    if (bull['id'] == b['id']) {
+                                        bull.moveTo(b['x'], b['y']);
+                                    }
+                                });
                             }
                             
                             bl.forEach(processBullet);
                         }
                     }
+                    
+                    bullets.removeIf(isOutsideCanvas)
+                //END OF SETUP
                 }
 
                 this.update = function() {
+                    var timestamp = (new Date).getTime();
 
                     // a list of all the keys pressed we care about on this rendering
                     var actions = [];
@@ -156,76 +175,77 @@
                         actions.push('w');
                         var a = [0,0];
 
-                        var r = player_bottom.angle + 90;
+                        var r = you_bottom.angle + 90;
 
                         a[0] += Math.cos(r*(Math.PI/180))*.9
                         a[1] += Math.sin(r*(Math.PI/180))*.9
 
                         var ff = .5
                         
-                        player_bottom.velocity[0] *= ff;
-                        player_bottom.velocity[1] *= ff;
+                        you_bottom.velocity[0] *= ff;
+                        you_bottom.velocity[1] *= ff;
 
-                        player_bottom.velocity[0] += a[0]; 
-                        player_bottom.velocity[1] += a[1];
+                        you_bottom.velocity[0] += a[0]; 
+                        you_bottom.velocity[1] += a[1];
 
-                        player_bottom.x -= player_bottom.velocity[0];
-                        player_bottom.y -= player_bottom.velocity[1];
+                        you_bottom.x -= you_bottom.velocity[0];
+                        you_bottom.y -= you_bottom.velocity[1];
                         
-                        player_top.x -= player_bottom.velocity[0];
-                        player_top.y -= player_bottom.velocity[1];
+                        you_top.x -= you_bottom.velocity[0];
+                        you_top.y -= you_bottom.velocity[1];
                     }
                     if(jaws.pressed("s")) {
                         actions.push('s');
                         var a = [0,0];
 
-                        var r = player_bottom.angle + 90;
+                        var r = you_bottom.angle + 90;
 
                         a[0] += Math.cos(r*(Math.PI/180))*.9
                         a[1] += Math.sin(r*(Math.PI/180))*.9
 
                         var ff = .5
                         
-                        player_bottom.velocity[0] *= ff;
-                        player_bottom.velocity[1] *= ff;
+                        you_bottom.velocity[0] *= ff;
+                        you_bottom.velocity[1] *= ff;
 
-                        player_bottom.velocity[0] += a[0]; 
-                        player_bottom.velocity[1] += a[1];
+                        you_bottom.velocity[0] += a[0]; 
+                        you_bottom.velocity[1] += a[1];
 
-                        player_bottom.x += player_bottom.velocity[0];
-                        player_bottom.y += player_bottom.velocity[1];
+                        you_bottom.x += you_bottom.velocity[0];
+                        you_bottom.y += you_bottom.velocity[1];
                         
-                        player_top.x += player_bottom.velocity[0];
-                        player_top.y += player_bottom.velocity[1];
+                        you_top.x += you_bottom.velocity[0];
+                        you_top.y += you_bottom.velocity[1];
                     
                     }
                     if(jaws.pressed("a")) { 
                         actions.push('a');
-                        player_bottom.angle -= 1;
+                        you_bottom.angle -= 1;
                     }
                     if(jaws.pressed("d")) {
                         actions.push('d');
-                        player_bottom.angle += 1;
+                        you_bottom.angle += 1;
                     }
 
                     if(jaws.pressed("left")) {
                         actions.push('left');
-                        player_top.angle -= 1;
+                        you_top.angle -= 1;
                     }
                     
                     if(jaws.pressed("right")) {
                         actions.push('right');
-                        player_top.angle += 1;
+                        you_top.angle += 1;
                     }
 
                    
                     // If they have pressed any keys we care about, send a message to the server
                     if (actions.length != 0) {
-                        sock.send(JSON.stringify({"pid":player_bottom.pid,"actions":actions}));
+                        sock.send(JSON.stringify({"ts":timestamp,"actions":actions}));
                     }
                 }
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
+                    you.draw();
                     players.draw();
                     bullets.draw();
                 }
