@@ -10,6 +10,7 @@ from bullet import Bullet
 
 import time
 import json
+import sys
 from random import randint
 
 class WorldObjects(object):
@@ -141,7 +142,13 @@ w = WorldObjects()
 f = GameFactory(w)
 s = SockJSFactory(f)
 
-reactor.listenTCP(8090, s)
+#try to get the port specified, default to 8090
+try:
+    port = int(sys.argv[1])
+except:
+    port = 8090
+
+reactor.listenTCP(port, s)
 
 broadcast = LoopingCall(f.broadcast)
 broadcast.start(0.1)
