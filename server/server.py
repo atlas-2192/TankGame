@@ -10,6 +10,7 @@ from bullet import Bullet
 
 import time
 import json
+import sys
 from random import randint
 
 class BoomProtocol(LineReceiver):
@@ -92,7 +93,13 @@ class GameFactory(Factory):
 f = GameFactory()
 s = SockJSFactory(f)
 
-reactor.listenTCP(8090, s)
+#try to get the port specified, default to 8090
+try:
+    port = int(sys.argv[1])
+except:
+    port = 8090
+
+reactor.listenTCP(port, s)
 
 lc = LoopingCall(f.broadcast)
 lc.start(0.03333333333333)
