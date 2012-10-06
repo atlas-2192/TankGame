@@ -16,6 +16,7 @@
 
             var you_bottom;
             var you_top;
+            var you_history = [];
             //--------------------------
             //Helper Fuctions
             //--------------------------
@@ -44,6 +45,44 @@
                 return (item.x < 0 || item.y < 0 || item.x > jaws.width || item.y > jaws.height) 
             }
 
+            function calcPing(current_ts, old_ts) {
+                /* 
+                Calculate the ping for the client.
+                    current_ts - The current timestamp for the game
+                    old_ts - The timestamp sent to the server on the original request
+                */
+                var ping = current_ts - old_ts;
+                return ping
+            }
+
+            function calcServerTime(server_ts, old_ts, current_ts) {
+                /* 
+                Calculate the timestamp for the server based on the ping
+                    server_ts - The timestamp received from the server
+                    old_ts - The original timestamp sent to the server from the client
+                    current_ts - the current timestamp for the client
+                */
+                var ping = calcPing(current_ts, old_ts);
+                var calc_ts = (server_ts - current_ts + ping / 2) + current_ts; 
+                return Math.round(calc_ts);
+            }
+
+            function logYourState(cts, top_json, bottom_json) {
+                // log your position and rotation at a given timestamp
+               you_history.push([cts, top_json, bottom_json]);  
+            }
+
+            function correctMyPosition(y) {
+                // y - a json object representing you
+                you_bottom.x = y.x;
+                you_bottom.y = y.y;
+                you_bottom.angle = y.rot;
+
+                you_top.x = y.tx;
+                you_top.y = y.ty;
+                you_top.angle = y.trot;
+            }
+            
             //-------------------------
             // INITIAL GAME STATE
             //------------------------
@@ -53,28 +92,17 @@
                     // Sockets
                     //-----------
                     sock = new SockJS('http://localhost:8090');
+                    //sock = new SockJS('http://sambev.dlinkddns.com:8090');
+
                     sock.onopen = function() {
                         console.log('open');
-                        var timestamp = (new Date).getTime();
+                        var timestamp = jaws.game_loop.runtime();
                         sock.send(JSON.stringify({"timestamp":timestamp}));
                     }
 
                     sock.onmessage = function(e) {
-                        var current_ts = (new Date).getTime();
                         // This function is only until the servers has recognized your connection
                         var d = JSON.parse(e.data)
-                        if (d['server_timestamp']) {
-                            var server_ts = d['server_timestamp'];
-                            var client_ts = d['client_timestamp'];
-
-                            var ping = current_ts - client_ts;
-                            var current_server = (server_ts - current_ts + ping / 2) + current_ts;
-                            console.log(ping);
-                            console.log(current_ts);
-                            console.log(client_ts);
-                            console.log(server_ts);
-                            console.log(current_server);
-                        }
                         if (d['new_you']) {
                             // This should always be you
                             var p = JSON.parse(d['new_you']);
@@ -89,7 +117,7 @@
                             you.push(you_top);
 
                             // Switch the game state. This changes sock.onemessage 
-                            //jaws.switchGameState(PlayState);    
+                            jaws.switchGameState(PlayState);    
                         }
                         
                         if (d['player_list']) {
@@ -119,11 +147,27 @@
                 }
             }
             function PlayState() {
+                //Used to determine when to send data to the server
+                var tick_tracker = 0;
+                var actions = [];
+                var ping;
+                var last_server_ts;
+                var old_client_ts;
+
                 this.setup = function() {
                     jaws.preventDefaultKeys(["space", "w", "a", "s", "d", "left", "right"]);
-
                     sock.onmessage = function(e) {
+                        var current_ts = jaws.game_loop.runtime();
                         var d = JSON.parse(e.data)
+                        
+                        if (d['server_ts']) {
+                            // USED TO CALC THE SERVER TIME AND PING
+                            last_server_ts = d['server_ts'];
+                            old_client_ts = d['client_ts'];
+
+                            ping = calcPing(current_ts, old_client_ts);
+                        }
+
                         if (d['new_player']) {
                             var p = JSON.parse(d['new_player']);
                             var x = p['x'];
@@ -146,6 +190,29 @@
                             }
                             players.forEach(updatePlayers);
                         }
+                        
+                        //Server correction
+                        // What the server says you are
+                        var y = JSON.parse(d['user_info']);
+                        for (i=0;i<you_history.length;i++) {
+                            if (you_history[i][0] == old_client_ts) {
+                                console.log(old_client_ts);
+                                var temp_top = JSON.parse(you_history[i][1]);
+                                var temp_bot = JSON.parse(you_history[i][2]);
+                                y.x = parseFloat(y.x.toFixed(2))
+                                y.y = parseFloat(y.y.toFixed(2))
+                                y.tx = parseFloat(y.tx.toFixed(2))
+                                y.ty = parseFloat(y.ty.toFixed(2))
+
+                                if (y.x != temp_bot.x || y.y != temp_bot.y || y.rot != temp_bot.angle || y.trot != temp_top.angle) {
+                                    correctMyPosition(y);
+                                }
+
+                                you_history = you_history.splice(i, you_history.length);
+                                break;
+                            }
+                        }
+
 
                         if (d['new_bullets'] && d['new_bullets'].length != 0) {
                             // Handle when a new bullet needs to be drawn
@@ -177,16 +244,35 @@
                 }
 
                 this.update = function() {
+                    
+                    // A group of actions to send
+                    var action_group = {};
+                    var current_ts = jaws.game_loop.runtime();
+                    // Calculated server time for this action group
+                    action_group['calc_timestamp'] = calcServerTime(last_server_ts, current_ts, old_client_ts);
+                    action_group['list'] = [];
+                    
+
+                    tick_tracker += jaws.game_loop.tick_duration
+
+                    if (tick_tracker >= 50) {
+                        tick_tracker = 0;
+                        var cts = jaws.game_loop.runtime();
+                        logYourState(cts, you_top.toJSON(), you_bottom.toJSON());
+                        console.log(you_bottom.angle);
+                        console.log(cts);
+                        sock.send(JSON.stringify({"cts":cts,"actions":actions}));
+                        actions = [];
+                    }
 
                     // a list of all the keys pressed we care about on this rendering
-                    var actions = [];
 
                     if(jaws.pressed("space")) {
-                        actions.push('fire');
+                        action_group['list'].push('fire');
                     }
 
                     if(jaws.pressed("w")) { 
-                        actions.push('w');
+                        action_group['list'].push('w');
                         var a = [0,0];
 
                         var r = you_bottom.angle + 90;
@@ -209,7 +295,7 @@
                         you_top.y -= you_bottom.velocity[1];
                     }
                     if(jaws.pressed("s")) {
-                        actions.push('s');
+                        action_group['list'].push('s');
                         var a = [0,0];
 
                         var r = you_bottom.angle + 90;
@@ -233,30 +319,28 @@
                     
                     }
                     if(jaws.pressed("a")) { 
-                        actions.push('a');
+                        action_group['list'].push('a');
                         you_bottom.angle -= 1;
                     }
                     if(jaws.pressed("d")) {
-                        actions.push('d');
+                        action_group['list'].push('d');
                         you_bottom.angle += 1;
                     }
 
                     if(jaws.pressed("left")) {
-                        actions.push('left');
+                        action_group['list'].push('left');
                         you_top.angle -= 1;
                     }
                     
                     if(jaws.pressed("right")) {
-                        actions.push('right');
+                        action_group['list'].push('right');
                         you_top.angle += 1;
                     }
-
-                   
-                    // If they have pressed any keys we care about, send a message to the server
-                    if (actions.length != 0) {
-                        var timestamp = (new Date).getTime();
-                        sock.send(JSON.stringify({"ts":timestamp,"actions":actions}));
+                    
+                    if (action_group['list'].length > 0) {
+                        actions.push(action_group); 
                     }
+                    //console.log(you_bottom.x);
                 }
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
@@ -271,7 +355,7 @@
                 jaws.assets.add("images/tanktop.png");
                 jaws.assets.add("images/tankbot.png");
                 jaws.assets.add("images/bluebullet.png");
-                jaws.start(connectSocketsState, {fps:30});
+                jaws.start(connectSocketsState, {fps:60});
             }
 
         </script>

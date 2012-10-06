@@ -39,18 +39,10 @@ class BoomProtocol(LineReceiver):
     def connectionMade(self):
         print 'connection made'
         self.factory.addUser(self)
-        #self.sendLine(json.dumps({'test':'message'}))
 
     def dataReceived(self, data):
         data = json.loads(data)
-        if data['timestamp']:
-            ts = int(round(time.time()*1000))
-            self.sendLine(json.dumps({
-                'server_timestamp':ts, 
-                'client_timestamp':data['timestamp']
-            }))
-        else:
-            self.factory.processData(data, self)
+        self.factory.processData(data, self)
 
     def connectionLost(self, something):
         print 'connection lost'
@@ -69,6 +61,10 @@ class GameFactory(Factory):
     def __init__(self, world):
         self.users = set()
         self.world = world
+
+    @classmethod
+    def currentTime(self):
+        return int(round(time.time()*1000))
 
     def addUser(self, user):
         
@@ -97,9 +93,11 @@ class GameFactory(Factory):
         return BoomProtocol(self)
 
     def processData(self, data, boom):
+        #print 'server'
+        #print self.currentTime()
         for u in self.users:
             if u.boom == boom:
-                u.acceptCommands(data['actions'])
+                u.processData(data)
 
     def broadcast(self):
         player_list = self.playerList()
@@ -107,7 +105,12 @@ class GameFactory(Factory):
         new_bullets = self.newBullets()
 
         for u in self.users:
+            print u.last_ts
+            print u.toJSON()
             u.boom.sendLine(json.dumps({
+                "client_ts":u.last_ts,
+                "server_ts":self.currentTime(),
+                "user_info":u.toJSON(),
                 "player_list":player_list,
                 "bullet_list":bullet_list,
                 "new_bullets":new_bullets
@@ -162,7 +165,7 @@ broadcast = LoopingCall(f.broadcast)
 broadcast.start(0.1)
 
 gameloop = LoopingCall(w.update)
-gameloop.start(0.033333333)
+gameloop.start(0.016666667)
 
 reactor.run()
 

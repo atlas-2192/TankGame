@@ -5,6 +5,21 @@ import json
 from twisted.internet import reactor
 
 from bullet import Bullet
+import time
+import copy
+
+class InputCommands():
+    """
+    cmds - The list of keyboard input commands
+
+    # t:
+    # Clients send this timestamp to the server and the server sends it back.
+    """
+
+    def __init__(self, cmds=[], t=0):
+        self.cmds = cmds
+        self.t = t
+
 
 class Player(object):
     
@@ -12,8 +27,13 @@ class Player(object):
         """
         User: the BoomProtocol instance
         """
-        #The world this player belongs to
-        self.world = world
+        #last time stamp recieved from this client
+        self.last_ts = 0
+
+        #input commands that haven't been processed
+        self.input_commands = InputCommands()
+        #processed commands
+        self.processed_commands = []
 
         self.pid = randint(1,500)
         self.boom = user
@@ -49,13 +69,38 @@ class Player(object):
         self.new_bullets = []
         self.bullet_list = []
 
-    def acceptCommands(self, actions):
-        """
-        actions: A list of actions the client has pushed (WASD, Fire, etc...)
-        """
-        for a in actions:
-            self.cmd_map[a](a)
+        #The world this player belongs to
+        self.world = world
+        self.world.add(self)
 
+    def processData(self, data):
+        if 'actions' in data:
+            self.acceptCommands(data['actions'], data['cts'])
+
+            self.last_ts = data['cts']
+
+    def acceptCommands(self, actions, t):
+        """
+        actions: groups of actions the client has pushed (WASD, Fire, etc...)
+        """
+        self.input_commands.t = t
+        for action_group in actions:
+            #print action_group['calc_timestamp']
+            self.input_commands.cmds.append(action_group['list'])
+
+    def update(self):
+        """
+        Called every 100 milliseconds I think
+        """
+        for action_group in self.input_commands.cmds:
+            for cmd in action_group:
+                self.cmd_map[cmd](cmd)
+        self.processed_commands.append(copy.deepcopy(self.input_commands))
+        self.input_commands.cmds = []
+
+        if len(self.processed_commands) < 100:
+            self.processed_commands.pop(0)
+        #print self.toObj()
 
     def move(self, direction):
         a = [0.0,0.0]
