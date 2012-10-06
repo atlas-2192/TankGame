@@ -30,6 +30,7 @@ class WorldObjects(object):
         for o in self.object_list:
             o.update()
 
+
 class BoomProtocol(LineReceiver):
 
     def __init__(self, factory):
@@ -41,7 +42,15 @@ class BoomProtocol(LineReceiver):
         #self.sendLine(json.dumps({'test':'message'}))
 
     def dataReceived(self, data):
-        self.factory.processData(data, self)
+        data = json.loads(data)
+        if data['timestamp']:
+            ts = int(round(time.time()*1000))
+            self.sendLine(json.dumps({
+                'server_timestamp':ts, 
+                'client_timestamp':data['timestamp']
+            }))
+        else:
+            self.factory.processData(data, self)
 
     def connectionLost(self, something):
         print 'connection lost'
@@ -88,7 +97,6 @@ class GameFactory(Factory):
         return BoomProtocol(self)
 
     def processData(self, data, boom):
-        data = json.loads(data)
         for u in self.users:
             if u.boom == boom:
                 u.acceptCommands(data['actions'])

@@ -55,11 +55,26 @@
                     sock = new SockJS('http://localhost:8090');
                     sock.onopen = function() {
                         console.log('open');
+                        var timestamp = (new Date).getTime();
+                        sock.send(JSON.stringify({"timestamp":timestamp}));
                     }
 
                     sock.onmessage = function(e) {
+                        var current_ts = (new Date).getTime();
                         // This function is only until the servers has recognized your connection
                         var d = JSON.parse(e.data)
+                        if (d['server_timestamp']) {
+                            var server_ts = d['server_timestamp'];
+                            var client_ts = d['client_timestamp'];
+
+                            var ping = current_ts - client_ts;
+                            var current_server = (server_ts - current_ts + ping / 2) + current_ts;
+                            console.log(ping);
+                            console.log(current_ts);
+                            console.log(client_ts);
+                            console.log(server_ts);
+                            console.log(current_server);
+                        }
                         if (d['new_you']) {
                             // This should always be you
                             var p = JSON.parse(d['new_you']);
@@ -74,7 +89,7 @@
                             you.push(you_top);
 
                             // Switch the game state. This changes sock.onemessage 
-                            jaws.switchGameState(PlayState);    
+                            //jaws.switchGameState(PlayState);    
                         }
                         
                         if (d['player_list']) {
@@ -132,7 +147,7 @@
                             players.forEach(updatePlayers);
                         }
 
-                        if (d['new_bullets'].length != 0) {
+                        if (d['new_bullets'] && d['new_bullets'].length != 0) {
                             // Handle when a new bullet needs to be drawn
                             var new_bullets = d['new_bullets'];
 
@@ -162,7 +177,6 @@
                 }
 
                 this.update = function() {
-                    var timestamp = (new Date).getTime();
 
                     // a list of all the keys pressed we care about on this rendering
                     var actions = [];
@@ -240,6 +254,7 @@
                    
                     // If they have pressed any keys we care about, send a message to the server
                     if (actions.length != 0) {
+                        var timestamp = (new Date).getTime();
                         sock.send(JSON.stringify({"ts":timestamp,"actions":actions}));
                     }
                 }
