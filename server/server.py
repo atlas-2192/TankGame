@@ -79,7 +79,6 @@ class GameFactory(Factory):
 
         for u in self.users:
             if u.boom == user:
-                print 'testing'
                 u.boom.sendLine(json.dumps({'new_you':p.toJSON()}))
             else:
                 u.boom.sendLine(json.dumps({'new_player':p.toJSON()}))
@@ -100,13 +99,13 @@ class GameFactory(Factory):
                 u.processData(data)
 
     def broadcast(self):
+        w.update()
+
         player_list = self.playerList()
         bullet_list = self.bulletList()
         new_bullets = self.newBullets()
 
         for u in self.users:
-            print u.last_ts
-            print u.toJSON()
             u.boom.sendLine(json.dumps({
                 "client_ts":u.last_ts,
                 "server_ts":self.currentTime(),

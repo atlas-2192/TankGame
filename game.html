@@ -91,8 +91,8 @@
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://localhost:8090');
-                    //sock = new SockJS('http://sambev.dlinkddns.com:8090');
+                    //sock = new SockJS('http://localhost:8090');
+                    sock = new SockJS('http://sambev.dlinkddns.com:8090');
 
                     sock.onopen = function() {
                         console.log('open');
@@ -196,7 +196,6 @@
                         var y = JSON.parse(d['user_info']);
                         for (i=0;i<you_history.length;i++) {
                             if (you_history[i][0] == old_client_ts) {
-                                console.log(old_client_ts);
                                 var temp_top = JSON.parse(you_history[i][1]);
                                 var temp_bot = JSON.parse(you_history[i][2]);
                                 y.x = parseFloat(y.x.toFixed(2))
@@ -258,9 +257,9 @@
                     if (tick_tracker >= 50) {
                         tick_tracker = 0;
                         var cts = jaws.game_loop.runtime();
-                        logYourState(cts, you_top.toJSON(), you_bottom.toJSON());
-                        console.log(you_bottom.angle);
-                        console.log(cts);
+                        var top_json = you_top.toJSON();
+                        var bottom_json = you_bottom.toJSON();
+                        logYourState(cts, top_json, bottom_json);
                         sock.send(JSON.stringify({"cts":cts,"actions":actions}));
                         actions = [];
                     }
