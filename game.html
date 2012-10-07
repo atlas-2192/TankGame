@@ -34,13 +34,11 @@
 
             function addBullet(id, x, y, rot) {
                 // Helper function to add a bullet
-                var b = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
-                b.angle = rot;
-                b.id = id;
-                bullets.push(b);
-                bulletids.push(id);
+                //var b = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
+                //bulletids.push(id);
             }
             function isOutsideCanvas(item) { 
+                var item = item.sprite;
                 // check to see if item is outside the canvas
                 return (item.x < 0 || item.y < 0 || item.x > jaws.width || item.y > jaws.height) 
             }
@@ -81,6 +79,25 @@
                 you_top.x = y.tx;
                 you_top.y = y.ty;
                 you_top.angle = y.trot;
+            }
+
+            function Bullet(id, x, y, rot) {
+                // This kinda models the server
+                this.id = id;
+                this.speed = 16;
+                this.bullet = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
+                this.bullet.angle = rot;
+                this.draw = function() {
+                    // Not sure why I have to draw this twice for it to show up?
+                    this.bullet.draw();
+                    var a = [0.0, 0.0]
+                    var r = this.bullet.angle + 90;
+                    a[0] += Math.cos(r*(Math.PI/180)) * this.speed;
+                    a[1] += Math.sin(r*(Math.PI/180)) * this.speed;
+                    this.bullet.x -= a[0];
+                    this.bullet.y -= a[1];
+                    this.bullet.draw();
+                }
             }
             
             //-------------------------
@@ -193,22 +210,24 @@
                         
                         //Server correction
                         // What the server says you are
-                        var y = JSON.parse(d['user_info']);
-                        for (i=0;i<you_history.length;i++) {
-                            if (you_history[i][0] == old_client_ts) {
-                                var temp_top = JSON.parse(you_history[i][1]);
-                                var temp_bot = JSON.parse(you_history[i][2]);
-                                y.x = parseFloat(y.x.toFixed(2))
-                                y.y = parseFloat(y.y.toFixed(2))
-                                y.tx = parseFloat(y.tx.toFixed(2))
-                                y.ty = parseFloat(y.ty.toFixed(2))
+                        if (d['user_info']) {
+                            var y = JSON.parse(d['user_info']);
+                            for (i=0;i<you_history.length;i++) {
+                                if (you_history[i][0] == old_client_ts) {
+                                    var temp_top = JSON.parse(you_history[i][1]);
+                                    var temp_bot = JSON.parse(you_history[i][2]);
+                                    y.x = parseFloat(y.x.toFixed(2))
+                                    y.y = parseFloat(y.y.toFixed(2))
+                                    y.tx = parseFloat(y.tx.toFixed(2))
+                                    y.ty = parseFloat(y.ty.toFixed(2))
 
-                                if (y.x != temp_bot.x || y.y != temp_bot.y || y.rot != temp_bot.angle || y.trot != temp_top.angle) {
-                                    correctMyPosition(y);
+                                    if (y.x != temp_bot.x || y.y != temp_bot.y || y.rot != temp_bot.angle || y.trot != temp_top.angle) {
+                                        correctMyPosition(y);
+                                    }
+
+                                    you_history = you_history.splice(i, you_history.length);
+                                    break;
                                 }
-
-                                you_history = you_history.splice(i, you_history.length);
-                                break;
                             }
                         }
 
@@ -218,24 +237,25 @@
                             var new_bullets = d['new_bullets'];
 
                             function processNewBullet(b) {
-                                addBullet(b['id'], b['x'], b['y'], b['rot']);
+                                var b = new Bullet(b['id'], b['x'], b['y'], b['rot']);
+                                bullets.push(b);
                             }
                             new_bullets.forEach(processNewBullet);
                         }
 
-                        if (d['bullet_list']) {
-                            var bl = d['bullet_list'];
+                        //if (d['bullet_list']) {
+                            //var bl = d['bullet_list'];
 
-                            function processBullet(b) {
-                                bullets.forEach(function(bull) {
-                                    if (bull['id'] == b['id']) {
-                                        bull.moveTo(b['x'], b['y']);
-                                    }
-                                });
-                            }
+                            //function processBullet(b) {
+                                //bullets.forEach(function(bull) {
+                                    //if (bull['id'] == b['id']) {
+                                        //bull.sprite.moveTo(b['x'], b['y']);
+                                    //}
+                                //});
+                            //}
                             
-                            bl.forEach(processBullet);
-                        }
+                            //bl.forEach(processBullet);
+                        //}
                     }
                     
                     bullets.removeIf(isOutsideCanvas)
@@ -339,7 +359,6 @@
                     if (action_group['list'].length > 0) {
                         actions.push(action_group); 
                     }
-                    //console.log(you_bottom.x);
                 }
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height);
