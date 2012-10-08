@@ -38,10 +38,10 @@ function Player(id, x, y, rot) {
         //-----------------------------------
         var a = [0,0];
 
-        var r = this.bottom.angle + 90;
+        var r = (this.bottom.angle + 90) * (Math.PI/180);
 
-        a[0] += Math.cos(r*(Math.PI/180))*.9
-        a[1] += Math.sin(r*(Math.PI/180))*.9
+        a[0] += Math.cos(r)*.9
+        a[1] += Math.sin(r)*.9
 
         var ff = .5
 

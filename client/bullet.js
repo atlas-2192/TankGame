@@ -14,9 +14,10 @@ function Bullet(id, x, y, rot) {
         //-------------------------------------
         this.bullet.draw();
         var a = [0.0, 0.0]
-        var r = this.bullet.angle + 90;
-        a[0] += Math.cos(r*(Math.PI/180)) * this.speed;
-        a[1] += Math.sin(r*(Math.PI/180)) * this.speed;
+        var r = (this.bullet.angle + 90) * (Math.PI/180);
+
+        a[0] += Math.cos(r) * this.speed;
+        a[1] += Math.sin(r) * this.speed;
         this.bullet.x -= a[0];
         this.bullet.y -= a[1];
         this.bullet.draw();
