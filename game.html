@@ -3,9 +3,11 @@
     <head>
         <script src="lib/sockjs-0.3.min.js"></script>
         <script src="lib/jaws.js"></script>
+        <script src="client/bullet.js"></script>
+        <script src="client/player.js"></script>
         <script>
             //some global variables
-            var you = new jaws.SpriteList();
+            var you;
             var players = new jaws.SpriteList();
             // This maps the player id to it's sprites locations
             var players_map = {};
@@ -16,29 +18,16 @@
 
             var you_bottom;
             var you_top;
-            var you_history = [];
             //--------------------------
             //Helper Fuctions
             //--------------------------
-            function addPlayer(x, y, pid) {
+            function addPlayer(pid, x, y) {
                 //Helper function to add a player
-                var b = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
-                b.pid = pid;
-                b.velocity = [0, 0];
-
-                var t = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
-                t.pid = pid;
-                players.push(b);
-                players.push(t);
+                var new_player = new Player(pid, x, y, 0);
+                players.push(new_player);
             }
 
-            function addBullet(id, x, y, rot) {
-                // Helper function to add a bullet
-                //var b = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
-                //bulletids.push(id);
-            }
             function isOutsideCanvas(item) { 
-                var item = item.sprite;
                 // check to see if item is outside the canvas
                 return (item.x < 0 || item.y < 0 || item.x > jaws.width || item.y > jaws.height) 
             }
@@ -64,41 +53,6 @@
                 var calc_ts = (server_ts - current_ts + ping / 2) + current_ts; 
                 return Math.round(calc_ts);
             }
-
-            function logYourState(cts, top_json, bottom_json) {
-                // log your position and rotation at a given timestamp
-               you_history.push([cts, top_json, bottom_json]);  
-            }
-
-            function correctMyPosition(y) {
-                // y - a json object representing you
-                you_bottom.x = y.x;
-                you_bottom.y = y.y;
-                you_bottom.angle = y.rot;
-
-                you_top.x = y.tx;
-                you_top.y = y.ty;
-                you_top.angle = y.trot;
-            }
-
-            function Bullet(id, x, y, rot) {
-                // This kinda models the server
-                this.id = id;
-                this.speed = 16;
-                this.bullet = new jaws.Sprite({'image':'images/bluebullet.png', x:x, y:y,'anchor':'center'});
-                this.bullet.angle = rot;
-                this.draw = function() {
-                    // Not sure why I have to draw this twice for it to show up?
-                    this.bullet.draw();
-                    var a = [0.0, 0.0]
-                    var r = this.bullet.angle + 90;
-                    a[0] += Math.cos(r*(Math.PI/180)) * this.speed;
-                    a[1] += Math.sin(r*(Math.PI/180)) * this.speed;
-                    this.bullet.x -= a[0];
-                    this.bullet.y -= a[1];
-                    this.bullet.draw();
-                }
-            }
             
             //-------------------------
             // INITIAL GAME STATE
@@ -108,8 +62,8 @@
                     //-----------
                     // Sockets
                     //-----------
-                    //sock = new SockJS('http://localhost:8090');
-                    sock = new SockJS('http://sambev.dlinkddns.com:8090');
+                    sock = new SockJS('http://localhost:8090');
+                    //sock = new SockJS('http://sambev.dlinkddns.com:8090');
 
                     sock.onopen = function() {
                         console.log('open');
@@ -125,14 +79,7 @@
                             var p = JSON.parse(d['new_you']);
                             var x = p['x'];
                             var y = p['y'];
-
-                            you_bottom = new jaws.Sprite({'image':"images/tankbot.png", x:x, y:y,'anchor':"center"});
-                            you_bottom.velocity = [0, 0];
-
-                            you_top = new jaws.Sprite({'image':"images/tanktop.png", x:x, y:y,'anchor_x':0.5, 'anchor_y':0.75});
-                            you.push(you_bottom);
-                            you.push(you_top);
-
+                            you = new Player(0, x, y, 0);
                             // Switch the game state. This changes sock.onemessage 
                             jaws.switchGameState(PlayState);    
                         }
@@ -143,7 +90,7 @@
                             for (i in player_list) {
                                 if (parseInt(i)) {
                                     var sp = player_list[i];
-                                    addPlayer(sp['x'], sp['y'], sp['pid']);
+                                    addPlayer(sp['pid'], sp['x'], sp['y']);
                                 }
                             }
                         }
@@ -157,7 +104,7 @@
 
                 this.draw = function() {
                     jaws.context.clearRect(0,0,jaws.width,jaws.height)
-                    jaws.context.font = "bold 50pt terminal";
+                    jaws.context.font = "bold 25pt terminal";
                     jaws.context.lineWidth = 10
                     jaws.context.fillStyle = "Black"
                     jaws.context.fillText("Connecting to server", 30, 100)
@@ -186,24 +133,20 @@
                         }
 
                         if (d['new_player']) {
+                            // A NEW PLAYER CONNECTED
                             var p = JSON.parse(d['new_player']);
                             var x = p['x'];
                             var y = p['y'];
                             var id = p['pid'];
-                            addPlayer(x, y, id);
+                            addPlayer(id, x, y);
                         } 
                         
                         if (d['player_list']) {
                             var player_list = d['player_list'];
-                            function updatePlayers(ip, index) {
+                            function updatePlayers(player, index) {
                                 //server player
-                                var sp = player_list[ip.pid];
-                                ip.moveTo(sp['x'], sp['y']);
-                                if (ip.image_path == 'images/tanktop.png') {
-                                    ip.angle = sp['trot'];
-                                } else {
-                                    ip.angle = sp['rot'];
-                                }
+                                var sp = player_list[player.id];
+                                player.correctPosition(sp);
                             }
                             players.forEach(updatePlayers);
                         }
@@ -212,20 +155,20 @@
                         // What the server says you are
                         if (d['user_info']) {
                             var y = JSON.parse(d['user_info']);
-                            for (i=0;i<you_history.length;i++) {
-                                if (you_history[i][0] == old_client_ts) {
-                                    var temp_top = JSON.parse(you_history[i][1]);
-                                    var temp_bot = JSON.parse(you_history[i][2]);
+                            for (i=0;i<you.history.length;i++) {
+                                if (you.history[i][0] == old_client_ts) {
+                                    var temp_top = JSON.parse(you.history[i][1]);
+                                    var temp_bot = JSON.parse(you.history[i][2]);
                                     y.x = parseFloat(y.x.toFixed(2))
                                     y.y = parseFloat(y.y.toFixed(2))
                                     y.tx = parseFloat(y.tx.toFixed(2))
                                     y.ty = parseFloat(y.ty.toFixed(2))
 
                                     if (y.x != temp_bot.x || y.y != temp_bot.y || y.rot != temp_bot.angle || y.trot != temp_top.angle) {
-                                        correctMyPosition(y);
+                                        you.correctPosition(y);
                                     }
 
-                                    you_history = you_history.splice(i, you_history.length);
+                                    you.history = you.history.splice(i, you.history.length);
                                     break;
                                 }
                             }
@@ -264,22 +207,19 @@
 
                 this.update = function() {
                     
-                    // A group of actions to send
+                    // A group of actions to send to the server
                     var action_group = {};
                     var current_ts = jaws.game_loop.runtime();
                     // Calculated server time for this action group
                     action_group['calc_timestamp'] = calcServerTime(last_server_ts, current_ts, old_client_ts);
                     action_group['list'] = [];
-                    
-
+                   
+                    // Send an update to the server about every 50 milliseconds
                     tick_tracker += jaws.game_loop.tick_duration
-
                     if (tick_tracker >= 50) {
                         tick_tracker = 0;
                         var cts = jaws.game_loop.runtime();
-                        var top_json = you_top.toJSON();
-                        var bottom_json = you_bottom.toJSON();
-                        logYourState(cts, top_json, bottom_json);
+                        you.logState(cts);
                         sock.send(JSON.stringify({"cts":cts,"actions":actions}));
                         actions = [];
                     }
@@ -288,72 +228,34 @@
 
                     if(jaws.pressed("space")) {
                         action_group['list'].push('fire');
+                        you.fire();
                     }
 
                     if(jaws.pressed("w")) { 
                         action_group['list'].push('w');
-                        var a = [0,0];
-
-                        var r = you_bottom.angle + 90;
-
-                        a[0] += Math.cos(r*(Math.PI/180))*.9
-                        a[1] += Math.sin(r*(Math.PI/180))*.9
-
-                        var ff = .5
-                        
-                        you_bottom.velocity[0] *= ff;
-                        you_bottom.velocity[1] *= ff;
-
-                        you_bottom.velocity[0] += a[0]; 
-                        you_bottom.velocity[1] += a[1];
-
-                        you_bottom.x -= you_bottom.velocity[0];
-                        you_bottom.y -= you_bottom.velocity[1];
-                        
-                        you_top.x -= you_bottom.velocity[0];
-                        you_top.y -= you_bottom.velocity[1];
+                        you.move("w");
                     }
                     if(jaws.pressed("s")) {
                         action_group['list'].push('s');
-                        var a = [0,0];
-
-                        var r = you_bottom.angle + 90;
-
-                        a[0] += Math.cos(r*(Math.PI/180))*.9
-                        a[1] += Math.sin(r*(Math.PI/180))*.9
-
-                        var ff = .5
-                        
-                        you_bottom.velocity[0] *= ff;
-                        you_bottom.velocity[1] *= ff;
-
-                        you_bottom.velocity[0] += a[0]; 
-                        you_bottom.velocity[1] += a[1];
-
-                        you_bottom.x += you_bottom.velocity[0];
-                        you_bottom.y += you_bottom.velocity[1];
-                        
-                        you_top.x += you_bottom.velocity[0];
-                        you_top.y += you_bottom.velocity[1];
-                    
+                        you.move("s");
                     }
                     if(jaws.pressed("a")) { 
                         action_group['list'].push('a');
-                        you_bottom.angle -= 1;
+                        you.rotate("a");
                     }
                     if(jaws.pressed("d")) {
                         action_group['list'].push('d');
-                        you_bottom.angle += 1;
+                        you.rotate("d");
                     }
 
                     if(jaws.pressed("left")) {
                         action_group['list'].push('left');
-                        you_top.angle -= 1;
+                        you.rotateTurret("left");
                     }
                     
                     if(jaws.pressed("right")) {
                         action_group['list'].push('right');
-                        you_top.angle += 1;
+                        you.rotateTurret("right");
                     }
                     
                     if (action_group['list'].length > 0) {
