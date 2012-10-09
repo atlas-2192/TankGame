@@ -9,6 +9,8 @@ function Player(id, x, y, rot) {
 
     this.velocity = [0, 0];
     this.history = [];
+    this.server_history = [];
+    this.next_cmds = [];
 
     this.loading = false;
 
@@ -16,6 +18,12 @@ function Player(id, x, y, rot) {
         //-------------------------------------
         // Draw my sprites. This is called every game loop
         //-------------------------------------
+        if (this.server_history.length > 0 && this.next_cmds.length == 0) {
+            var cmds = this.server_history.pop(0);
+            this.drawFromServerPast(cmds);
+        }
+
+        this.drawNextCmds();
         this.bottom.draw();
         this.top.draw();
     }
@@ -117,6 +125,41 @@ function Player(id, x, y, rot) {
         this.top.x = y.tx;
         this.top.y = y.ty;
         this.top.angle = y.trot;
+    }
+
+    this.drawFromServerPast = function(cmds) {
+        //------------------------------
+        // This will apply past commands from th server
+        // This is really for other entities.
+        // h - an array of stuff
+        //-----------------------------
+        for(i=0;i<cmds.length;i++) {
+            for(n=0;n<cmds[i].cmds.length;n++) {
+                this.next_cmds.push(cmds[i].cmds[n]);            
+            }
+        }
+    }
+
+    this.drawNextCmds = function() {
+        //------------------------
+        // This and the above functions are turrible. I'm sorry
+        //------------------------
+        var cmds = this.next_cmds.pop(0);
+        if (!cmds) return;
+
+        for(i=0;i<cmds.length;i++) {
+            var c = cmds[i];
+            if (c == 'w' || c == 's') {
+                this.move(c);
+            } else if (c == 'a' || c == 'd') {
+                this.rotate(c);
+            } else if (c == 'left' || c == 'right') {
+                this.rotateTurret(c);
+            } else if (c == 'fire') {
+                this.fire();
+            }
+        }
+        
     }
 
 }

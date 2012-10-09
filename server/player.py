@@ -95,11 +95,13 @@ class Player(object):
         for action_group in self.input_commands.cmds:
             for cmd in action_group:
                 self.cmd_map[cmd](cmd)
-        self.processed_commands.append(copy.deepcopy(self.input_commands))
+
+        # Only put them in history if there was a command
+        if self.input_commands.cmds:
+            self.processed_commands.append(copy.deepcopy(self.input_commands))
+
         self.input_commands.cmds = []
 
-        if len(self.processed_commands) < 100:
-            self.processed_commands.pop(0)
         #print self.toObj()
 
     def move(self, direction):
@@ -177,6 +179,12 @@ class Player(object):
             'rot':self.rot,
             'tx':self.tx,
             'ty':self.ty,
-            'trot':self.trot
+            'trot':self.trot,
+            'history':self.historyObj()
         }
+
+    def historyObj(self):
+        h = [{'time':cmds.t, 'cmds':cmds.cmds} for cmds in self.processed_commands]
+        self.processed_commands = []
+        return h
 

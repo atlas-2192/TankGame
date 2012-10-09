@@ -62,8 +62,8 @@
                     //-----------
                     // Sockets
                     //-----------
-                    sock = new SockJS('http://localhost:8090');
-                    //sock = new SockJS('http://sambev.dlinkddns.com:8090');
+                    //sock = new SockJS('http://localhost:8090');
+                    sock = new SockJS('http://sambev.dlinkddns.com:8090');
 
                     sock.onopen = function() {
                         console.log('open');
@@ -146,7 +146,9 @@
                             function updatePlayers(player, index) {
                                 //server player
                                 var sp = player_list[player.id];
-                                player.correctPosition(sp);
+                                //console.log(sp.history);
+                                player.server_history.push(sp.history);
+                                //player.correctPosition(sp);
                             }
                             players.forEach(updatePlayers);
                         }
